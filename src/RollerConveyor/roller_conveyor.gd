@@ -20,10 +20,37 @@ var speed: float = 2.0:
 		if _instance_ready:
 			$RollerConveyorLegacy.skew_angle = value
 
+var original_size := Vector3.ZERO
+var transform_in_progress := false
 
 static func _get_constrained_size(new_size: Vector3) -> Vector3:
 	return Vector3(max(1.5, new_size.x), 0.24, max(0.10, new_size.z))
 
+
+func _enter_tree() -> void:
+	EditorInterface.transform_requested.connect(_transform_requested)
+	EditorInterface.transform_commited.connect(_transform_commited)
+	
+func _exit_tree() -> void:	
+	EditorInterface.transform_requested.disconnect(_transform_requested)
+	EditorInterface.transform_commited.disconnect(_transform_commited)
+
+func _transform_requested(data) -> void:
+	if not EditorInterface.get_selection().get_selected_nodes().has(self): return
+	
+	if data.has("motion"):
+		var motion = Vector3(data["motion"][0], data["motion"][1], data["motion"][2])
+		
+		if not transform_in_progress:
+			original_size = size
+			transform_in_progress = true
+		
+		var new_size = original_size + motion
+		new_size = _get_constrained_size(new_size)	
+		size = new_size
+	
+func _transform_commited() -> void:
+	transform_in_progress = false
 
 func _on_instantiated() -> void:
 	$RollerConveyorLegacy.on_scene_instantiated()

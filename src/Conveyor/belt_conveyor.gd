@@ -63,6 +63,8 @@ var mesh: MeshInstance3D
 var belt_material: Material
 var metal_material: Material
 var belt_position: float = 0.0
+var original_size := Vector3.ZERO
+var transform_in_progress := false
 
 var register_speed_tag_ok := false
 var register_running_tag_ok := false
@@ -137,7 +139,25 @@ func _enter_tree() -> void:
 	OIPComms.tag_group_initialized.connect(_tag_group_initialized)
 	OIPComms.tag_group_polled.connect(_tag_group_polled)
 	OIPComms.enable_comms_changed.connect(func() -> void: _enable_comms_changed = OIPComms.get_enable_comms)
+	EditorInterface.transform_requested.connect(_transform_requested)
+	EditorInterface.transform_commited.connect(_transform_commited)
 
+func _transform_requested(data) -> void:
+	if not EditorInterface.get_selection().get_selected_nodes().has(self): return
+	
+	if data.has("motion"):
+		var motion = Vector3(data["motion"][0], data["motion"][1], data["motion"][2])
+		
+		if not transform_in_progress:
+			original_size = size
+			transform_in_progress = true
+		
+		var new_size = original_size + motion
+		new_size = _get_constrained_size(new_size)	
+		size = new_size
+	
+func _transform_commited() -> void:
+	transform_in_progress = false
 
 func _ready() -> void:
 	migrate_scale_to_size()
@@ -148,7 +168,8 @@ func _exit_tree() -> void:
 	SimulationEvents.simulation_ended.disconnect(_on_simulation_ended)
 	OIPComms.tag_group_initialized.disconnect(_tag_group_initialized)
 	OIPComms.tag_group_polled.disconnect(_tag_group_polled)
-
+	EditorInterface.transform_requested.disconnect(_transform_requested)
+	EditorInterface.transform_commited.disconnect(_transform_commited)
 
 func _physics_process(delta: float) -> void:
 	if SimulationEvents.simulation_running:
